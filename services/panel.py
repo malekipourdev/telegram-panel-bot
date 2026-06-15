@@ -22,7 +22,7 @@ class PanelAPIClient:
         }
     
     async def get_clients_list(self) -> Dict[str, Any]:
-        url = f"{self.base_url}/{settings.PANEL_WEB_PATH}/panel/api/clients/list"
+        url = f"{self.base_url}/panel/api/clients/list"
         
         try:
             async with httpx.AsyncClient() as client:
