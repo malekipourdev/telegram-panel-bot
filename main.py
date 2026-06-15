@@ -105,12 +105,12 @@ async def clients_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             clients_data = response.json()
             
             # بررسی اینکه داده‌ها موجود هستند
-            if not clients_data or (isinstance(clients_data, dict) and not clients_data.get("data")):
+            # ساختار جواب: {"success": true, "msg": "", "obj": [...]}
+            clients_list = clients_data.get("obj", []) if isinstance(clients_data, dict) else []
+            
+            if not clients_list:
                 await update.message.reply_text("📭 هیچ کلاینتی وجود ندارد!")
                 return
-            
-            # استخراج لیست کلاینت‌ها
-            clients_list = clients_data.get("data", clients_data) if isinstance(clients_data, dict) else clients_data
             
             # ساخت پیام برای نمایش
             message = "📋 لیست کلاینت‌ها:\n\n"
