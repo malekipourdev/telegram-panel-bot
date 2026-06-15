@@ -79,7 +79,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "👋 سلام! من ربات پنل 3X-UI هستم.\n\n"
         "دستورات موجود:\n"
         "/clients - دریافت لیست کلاینت‌ها\n"
-        "/test - ایجاد کلاینت تست 50 مگابایتی"
+        "/test - ایجاد کلاینت تست 1 گیگابایتی"
     )
 
 
@@ -99,7 +99,7 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         client_payload = {
             "client": {
                 "email": test_email,
-                "totalGB": 0.05,  # 50 مگابایت
+                "totalGB": 1,  # 50 گیگابایت (عدد صحیح)
                 "expiryTime": 0,  # بدون انقضا
                 "tgId": 0,
                 "limitIp": 0,
@@ -136,7 +136,7 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(
                     f"✅ کلاینت تست با موفقیت ایجاد شد!\n\n"
                     f"📧 ایمیل: `{test_email}`\n"
-                    f"📦 حجم: 50 مگابایت\n"
+                    f"📦 حجم: 50 گیگابایت\n"
                     f"🔌 اینباند: 1\n\n"
                     f"حالا می‌تونی `/clients` رو دریافت کنی و کانفیگ رو کپی کنی"
                 )
