@@ -78,8 +78,76 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 سلام! من ربات پنل 3X-UI هستم.\n\n"
         "دستورات موجود:\n"
-        "/clients - دریافت لیست کلاینت‌ها"
+        "/clients - دریافت لیست کلاینت‌ها\n"
+        "/test - ایجاد کلاینت تست 50 مگابایتی"
     )
+
+
+async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """دستور /test - ایجاد کلاینت تست 50 مگابایتی"""
+    try:
+        await update.message.reply_text("⏳ در حال ایجاد کلاینت تست...")
+        
+        # ایجاد ایمیل یکتا برای هر تست
+        import uuid
+        test_email = f"test_{uuid.uuid4().hex[:8]}"
+        
+        # URL برای اضافه کردن کلاینت
+        add_url = f"{PANEL_BASE_URL}/Nao4H5JUx1fD5hQY60/panel/api/clients/add"
+        
+        # اطلاعات کلاینت تست
+        client_payload = {
+            "client": {
+                "email": test_email,
+                "totalGB": 0.05,  # 50 مگابایت
+                "expiryTime": 0,  # بدون انقضا
+                "tgId": 0,
+                "limitIp": 0,
+                "enable": True
+            },
+            "inboundIds": [1]
+        }
+        
+        custom_headers = {
+            "Authorization": f"Bearer {API_BEARER_TOKEN}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "FastAPI-Bot-Bridge"
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                add_url,
+                json=client_payload,
+                headers=custom_headers,
+                timeout=12.0
+            )
+            
+            if response.status_code != 200:
+                await update.message.reply_text(
+                    f"❌ خطا در ایجاد کلاینت!\nکد وضعیت: {response.status_code}\n\n{response.text[:200]}"
+                )
+                logger.error(f"Error creating test client: {response.text}")
+                return
+            
+            result = response.json()
+            
+            if result.get("success"):
+                await update.message.reply_text(
+                    f"✅ کلاینت تست با موفقیت ایجاد شد!\n\n"
+                    f"📧 ایمیل: `{test_email}`\n"
+                    f"📦 حجم: 50 مگابایت\n"
+                    f"🔌 اینباند: 1\n\n"
+                    f"حالا می‌تونی `/clients` رو دریافت کنی و کانفیگ رو کپی کنی"
+                )
+            else:
+                await update.message.reply_text(
+                    f"❌ خطایی رخ داد!\n{result.get('msg', 'نامشخص')}"
+                )
+                
+    except Exception as e:
+        logger.error(f"Error in test_command: {e}")
+        await update.message.reply_text(f"❌ خطایی رخ داد: {str(e)}")
 
 
 async def clients_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -141,6 +209,7 @@ async def setup_telegram_bot():
     # اضافه کردن handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("clients", clients_command))
+    application.add_handler(CommandHandler("test", test_command))
     
     # شروع polling
     await application.initialize()
