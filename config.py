@@ -1,29 +1,20 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
-class Settings(BaseSettings):
-    """Application settings from environment variables"""
+class Settings:
+    PANEL_BASE_URL: str = os.getenv("SANAYI_API_BASE_URL", "https://start724.online:48127")
+    PANEL_API_TOKEN: str = os.getenv("SANAYI_API_SECRET", "BcHHuqGxpAbcf6b1vBZf96px3lZ3pKBKC62bCCFq1Eij2Ivj")
+    TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "test_token_12345")
     
-    # Bot settings
-    TELEGRAM_BOT_TOKEN: str
-    TELEGRAM_WEBHOOK_URL: Optional[str] = None
+    PANEL_WEB_PATH: str = "Nao4H5JUx1fD5hQY60"
+    DEFAULT_INBOUND_ID: int = 1
+    TEST_CLIENT_SIZE_BYTES: int = 52428800
     
-    # Sanayi panel settings
-    SANAYI_API_BASE_URL: str = "https://api.sanayi.panel"
-    SANAYI_API_KEY: str
-    SANAYI_API_SECRET: str
-    
-    # Server settings
-    API_HOST: str = "0.0.0.0"
-    API_PORT: int = 8000
-    
-    # Database settings (optional for future use)
-    DATABASE_URL: Optional[str] = None
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    API_TIMEOUT: float = 12.0
+    LOG_LEVEL: str = "INFO"
 
 
 settings = Settings()
