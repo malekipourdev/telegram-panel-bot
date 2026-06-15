@@ -37,7 +37,7 @@ class PanelAPIClient:
             raise
     
     async def create_client(self, email: str, total_bytes: int, inbound_id: int = 1) -> Dict[str, Any]:
-        url = f"{self.base_url}/{settings.PANEL_WEB_PATH}/panel/api/clients/add"
+        url = f"{self.base_url}/panel/api/clients/add"
         
         payload = {
             "client": {
