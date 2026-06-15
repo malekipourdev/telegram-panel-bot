@@ -93,7 +93,7 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         test_email = f"test_{uuid.uuid4().hex[:8]}"
         
         # URL برای اضافه کردن کلاینت
-        add_url = f"{PANEL_BASE_URL}/Nao4H5JUx1fD5hQY60/panel/api/clients/add"
+        add_url = f"{PANEL_BASE_URL}/panel/api/clients/add"
         
         # اطلاعات کلاینت تست
         client_payload = {
