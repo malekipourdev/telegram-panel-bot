@@ -99,7 +99,7 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         client_payload = {
             "client": {
                 "email": test_email,
-                "totalGB": 500,  # 50 مگابایت
+                "totalGB": 52428800,  # 50 مگابایت (52,428,800 بایت)
                 "expiryTime": 0,  # بدون انقضا
                 "tgId": 0,
                 "limitIp": 0,
