@@ -209,7 +209,7 @@ async def handle_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             db.commit()
             
             # 8. Generate dynamic subscription URL and respond to the user
-            subscription_url = f"https://sub.yourdomain.com/sub/{generated_uuid}"
+            subscription_url = f"https://start724.online:48127/{generated_uuid}"
             await update.message.reply_text(
                 f"✅ Test configuration created successfully!\n\n"
                 f"📧 Email: `{test_email}`\n"
