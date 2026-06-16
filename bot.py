@@ -1,5 +1,5 @@
 import logging
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 
 from config import settings
 from handlers.commands import (
@@ -8,6 +8,8 @@ from handlers.commands import (
     handle_balance,
     handle_referral,
     handle_test,    
+    handle_buy_menu,                     
+    handle_package_purchase_callback    
 )
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,8 @@ async def setup_bot() -> Application:
     application.add_handler(CommandHandler("balance", handle_balance))
     application.add_handler(CommandHandler("referral", handle_referral))
     application.add_handler(CommandHandler("test", handle_test))
+    application.add_handler(CommandHandler("buy", handle_buy_menu))
+    application.add_handler(CallbackQueryHandler(handle_package_purchase_callback, pattern=r"^buy_pkg_"))
     
     await application.initialize()
     await application.start()

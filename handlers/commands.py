@@ -1,4 +1,5 @@
 import logging
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -229,5 +230,128 @@ async def handle_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         db.rollback()
         logger.error(f"Error in handle_test: {e}")
         await update.message.reply_text("An internal server error occurred while generating your test account.")
+    finally:
+        db.close()
+
+async def handle_buy_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Displays the available shopping packages to the user using inline keyboard buttons.
+    """
+    db = SessionLocal()
+    try:
+        packages = UserService.get_active_packages(db)
+        if not packages:
+            await update.message.reply_text("❌ No active packages found at the moment.")
+            return
+
+        keyboard = []
+        for pkg in packages:
+            # Format: Name - Gigabytes GB - Price Tomans
+            # Storing package ID inside the callback_data
+            button_text = f"📦 {pkg.name} ({pkg.gb_amount // (1024**3)}GB) - {pkg.price:,.0f} Tomans"
+            keyboard.append([InlineKeyboardButton(button_text, callback_data=f"buy_pkg_{pkg.id}")])
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("🛒 Please select your desired service package:", reply_markup=reply_markup)
+    except Exception as e:
+        logger.error(f"Error displaying buy menu: {e}")
+        await update.message.reply_text("An error occurred while loading the shop menu.")
+    finally:
+        db.close()
+
+async def handle_package_purchase_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Processes the inline button click for package injection. Checks balance,
+    deducts funds, communicates with Sanayi Panel and registers the new subscription.
+    """
+    query = update.callback_query
+    await query.answer() # Acknowledge the callback immediately to stop the loading animation on Telegram
+    
+    user = query.from_user
+    package_id = int(query.data.split("_")[-1]) # Extracts the trailing ID from 'buy_pkg_X'
+    
+    db = SessionLocal()
+    try:
+        # 1. Verify User and Package existence
+        db_user = UserService.get_user_by_telegram_id(db, user.id)
+        package = db.query(ServicePackage).filter(ServicePackage.id == package_id, ServicePackage.is_active == True).first()
+        
+        if not package:
+            await query.edit_message_text("❌ This package is no longer available.")
+            return
+
+        await query.edit_message_text("⏳ Processing payment and provisioning account on the server...")
+
+        # 2. Try to deduct internal balance
+        is_paid = await UserService.process_purchase_payment(db, db_user.id, package.price, package.id)
+        if not is_paid:
+            await query.edit_message_text(
+                f"❌ Insufficient Balance.\n\n"
+                f"Package Price: {package.price:,.0f} Tomans\n"
+                f"Your Current Balance: {db_user.balance:,.0f} Tomans\n\n"
+                f"Please charge your wallet first using the /balance menu."
+            )
+            return
+
+        # 3. Create unique identifiers for the panel configuration
+        unique_suffix = uuid.uuid4().hex[:6]
+        client_email = f"user_{db_user.id}_{unique_suffix}"
+
+        # 4. Request the Panel API Client to create the account and sync the server-generated UUID
+        panel_result = await panel_client.create_client(
+            email=client_email,
+            total_bytes=package.gb_amount,
+            inbound_id=1 # Default inbound ID
+        )
+
+        if panel_result.get("success"):
+            actual_uuid = panel_result.get("uuid")
+
+            # 5. Build subscription database record
+            subscription = await UserService.create_subscription_record(
+                db=db,
+                user_id=db_user.id,
+                package_id=package.id,
+                duration_days=package.duration_days or 30
+            )
+
+            # 6. Save the genuine client node linking the subscription ID
+            new_client = Client(
+                user_id=db_user.id,
+                subscription_id=subscription.id,
+                email=client_email,
+                uuid=actual_uuid,
+                inbound_id=1,
+                status="active",
+                total_gb=package.gb_amount,
+                used_gb=0
+            )
+            db.add(new_client)
+            
+            # Commit all operations together atomically (Balance deduction + Sub creation + Client creation)
+            db.commit()
+
+            # 7. Deliver the clean subscription URL to the buyer
+            subscription_url = f"{settings.PANEL_SUB_URL_BASE}/{actual_uuid}"
+            await query.edit_message_text(
+                f"🎉 Order Completed Successfully!\n\n"
+                f"📦 Package: *{package.name}*\n"
+                f"📊 Volume: {package.gb_amount // (1024**3)} GB\n"
+                f"📅 Expiry Period: {package.duration_days or 30} Days\n\n"
+                f"🔗 Your Configuration Subscription Link:\n"
+                f"`{subscription_url}`",
+                parse_mode="Markdown"
+            )
+            logger.info(f"User {user.id} successfully purchased package {package.name} (ID: {package.id})")
+        else:
+            # Rollback the balance deduction since the panel failed to create the account
+            db.rollback()
+            error_msg = panel_result.get("msg", "Panel connection fault")
+            await query.edit_message_text(f"❌ Core Server Error: {error_msg}. Money has been refunded back to your balance.")
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Fatal error in handle_package_purchase_callback: {e}")
+        await query.edit_message_text("❌ A critical internal system error occurred during purchase.")
     finally:
         db.close()

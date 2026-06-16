@@ -6,6 +6,7 @@ from models import User, ReferralLink, ReferralReward, Payment, UserServiceSubsc
 from config import settings
 import random
 import string
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
@@ -162,3 +163,39 @@ class UserService:
         db.commit()
         db.refresh(new_sub)
         return new_sub
+    
+    @staticmethod
+    def get_active_packages(db: Session) -> list[ServicePackage]:
+        """
+        Retrieves all currently active service packages available for purchase.
+        """
+        return db.query(ServicePackage).filter(ServicePackage.is_active == True).all()
+
+    @staticmethod
+    async def process_purchase_payment(db: Session, user_id: int, package_price: Decimal, package_id: int) -> bool:
+        """
+        Deducts the user balance and logs a verified payment record for the service purchase.
+        Returns True if successful, False if insufficient balance.
+        """
+        user = db.query(User).filter(User.id == user_id).with_for_update().first()
+        
+        if user.balance < package_price:
+            return False
+            
+        # Deduct the amount safely
+        user.balance -= package_price
+        
+        # Log the internal payment receipt
+        purchase_payment = Payment(
+            user_id=user.id,
+            amount=package_price,
+            status="verified", # Verified immediately since it uses internal wallet balance
+            payment_type="service_purchase",
+            description=f"Purchased package ID: {package_id}",
+            created_at=datetime.utcnow(),
+            verified_at=datetime.utcnow()
+        )
+        db.add(purchase_payment)
+        # Note: We do not commit here yet. We commit in the command handler after the panel successfully builds the config.
+        return True
+    
