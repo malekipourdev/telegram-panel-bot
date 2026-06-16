@@ -33,7 +33,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "/clients - Get list of all clients\n"
             "/test - Create test client (50MB)\n"
             "/balance - Check your balance\n"
-            "/referral - Get your referral link"
+            "/referral - Get your referral link\n"
             "/buy - Buy new config"
         )
         logger.info(f"User {user.id} started the bot")
