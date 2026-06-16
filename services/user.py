@@ -1,7 +1,8 @@
 import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from models import User, ReferralLink, ReferralReward, Payment
+from datetime import datetime, timedelta
+from models import User, ReferralLink, ReferralReward, Payment, UserServiceSubscription, ServicePackage
 from config import settings
 import random
 import string
@@ -122,3 +123,42 @@ class UserService:
             "referral_count": referral_link.referral_count,
             "total_reward": float(total_reward) if total_reward else 0.0
         }
+
+    @staticmethod
+    async def check_trial_eligibility(db: Session, user_id: int) -> bool:
+        """
+        Checks if a user is eligible for a free trial.
+        A user can only request one trial every 30 days.
+        """
+        # Calculate the datetime for 30 days ago from now
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        
+        # Check if any active/expired test subscription exists in the last 30 days
+        has_recent_trial = db.query(UserServiceSubscription).join(
+            ServicePackage, UserServiceSubscription.service_package_id == ServicePackage.id
+        ).filter(
+            UserServiceSubscription.user_id == user_id,
+            ServicePackage.gb_amount == 52428800,  # 50 MB in bytes
+            UserServiceSubscription.created_at >= thirty_days_ago
+        ).first()
+        
+        # If a recent trial is found, the user is NOT eligible (returns False)
+        return has_recent_trial is None
+
+    @staticmethod
+    async def create_subscription_record(db: Session, user_id: int, package_id: int, duration_days: int) -> UserServiceSubscription:
+        """
+        Creates a new service subscription record in the database.
+        """
+        expiry_date = datetime.utcnow() + timedelta(days=duration_days)
+        
+        new_sub = UserServiceSubscription(
+            user_id=user_id,
+            service_package_id=package_id,
+            status="active",
+            expiry_date=expiry_date
+        )
+        db.add(new_sub)
+        db.commit()
+        db.refresh(new_sub)
+        return new_sub

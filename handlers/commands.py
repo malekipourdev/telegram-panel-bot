@@ -6,6 +6,8 @@ from services.panel import PanelAPIClient
 from services.user import UserService
 from database import SessionLocal
 from config import settings
+import uuid
+from models import ServicePackage, Client
 
 logger = logging.getLogger(__name__)
 panel_client = PanelAPIClient()
@@ -132,5 +134,98 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     except Exception as e:
         logger.error(f"Error in handle_referral: {e}")
         await update.message.reply_text("Error fetching referral link.")
+    finally:
+        db.close()
+
+async def handle_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handles the /test command to issue a 50MB free trial configuration.
+    Validates monthly eligibility before calling the Panel API.
+    """
+    user = update.effective_user
+    db = SessionLocal()
+    
+    try:
+        # 1. Verify if the user exists in our system
+        db_user = UserService.get_user_by_telegram_id(db, user.id)
+        if not db_user:
+            await update.message.reply_text("Please use /start first to register.")
+            return
+            
+        await update.message.reply_text("⏳ Checking eligibility and creating your test account...")
+        
+        # 2. Check if the user is eligible for a free trial (Once every 30 days)
+        # Note: We will add 'check_trial_eligibility' method to UserService in the next step
+        is_eligible = await UserService.check_trial_eligibility(db, db_user.id)
+        if not is_eligible:
+            await update.message.reply_text(
+                "❌ You have already claimed your free trial for this month.\n"
+                "Each user is allowed only one test account every 30 days."
+                )
+            return
+            
+        # 3. Retrieve the 50MB test package from database
+        # 52,428,800 bytes = 50 Megabytes
+        test_package = db.query(ServicePackage).filter(ServicePackage.gb_amount == 52428800).first()
+        if not test_package:
+            await update.message.reply_text("❌ Test package configuration not found in database. Please contact admin.")
+            return
+            
+        # 4. Generate unique identifiers for the new client config
+        unique_suffix = uuid.uuid4().hex[:6]
+        test_email = f"test_{db_user.id}_{unique_suffix}"
+        generated_uuid = str(uuid.uuid4())
+        
+        # 5. Call your Panel API Client to create the client on 3X-UI server
+        # Note: Adjust the method name 'add_new_client' to match your actual PanelAPIClient implementation if needed
+        panel_result = await panel_client.add_new_client(
+            email=test_email, 
+            total_bytes=test_package.gb_amount,
+            inbound_id=1
+        )
+        
+        if panel_result.get("success"):
+            # 6. Create subscription record using UserService helper
+            # Note: We will add 'create_subscription_record' to UserService as well
+            subscription = await UserService.create_subscription_record(
+                db=db, 
+                user_id=db_user.id, 
+                package_id=test_package.id, 
+                duration_days=test_package.duration_days or 30
+            )
+            
+            # 7. Map and save the client config into the local database
+            new_client = Client(
+                user_id=db_user.id,
+                subscription_id=subscription.id,
+                email=test_email,
+                uuid=generated_uuid,
+                inbound_id=1,
+                status="active",
+                total_gb=test_package.gb_amount,
+                used_gb=0
+            )
+            db.add(new_client)
+            db.commit()
+            
+            # 8. Generate dynamic subscription URL and respond to the user
+            subscription_url = f"https://sub.yourdomain.com/sub/{generated_uuid}"
+            await update.message.reply_text(
+                f"✅ Test configuration created successfully!\n\n"
+                f"📧 Email: `{test_email}`\n"
+                f"📅 Validity: 30 Days\n\n"
+                f"🔗 Your Subscription Link:\n"
+                f"`{subscription_url}`",
+                parse_mode="Markdown"
+            )
+            logger.info(f"Successfully generated 50MB trial for user {user.id}")
+        else:
+            error_msg = panel_result.get("msg", "Unknown panel error")
+            await update.message.reply_text(f"❌ Failed to communicate with panel: {error_msg}")
+            
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error in handle_test: {e}")
+        await update.message.reply_text("An internal server error occurred while generating your test account.")
     finally:
         db.close()

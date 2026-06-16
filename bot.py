@@ -6,7 +6,8 @@ from handlers.commands import (
     handle_start, 
     handle_clients, 
     handle_balance,
-    handle_referral
+    handle_referral,
+    handle_test,    
 )
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ async def setup_bot() -> Application:
     application.add_handler(CommandHandler("clients", handle_clients))
     application.add_handler(CommandHandler("balance", handle_balance))
     application.add_handler(CommandHandler("referral", handle_referral))
+    application.add_handler(CommandHandler("test", handle_test))
     
     await application.initialize()
     await application.start()
