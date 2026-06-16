@@ -11,13 +11,13 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
-    telegram_id = Column(Integer, unique=True, nullable=False, index=True)
+    telegram_id = Column(BIGINT, unique=True, nullable=False, index=True)
     username = Column(String(255))
     first_name = Column(String(255))
     last_name = Column(String(255))
     is_admin = Column(Boolean, default=False, index=True)
     is_active = Column(Boolean, default=True)
-    referrer_id = Column(Integer, ForeignKey("users.id"), index=True)
+    referrer_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), index=True)
     balance = Column(Numeric(10, 2), default=0.00)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -55,12 +55,15 @@ class ReferralReward(Base):
 
     referrer = relationship("User", back_populates="referrals", foreign_keys=[referrer_user_id])
 
-
 class Client(Base):
     __tablename__ = "clients"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    # === ADD THIS NEW FIELD ===
+    subscription_id = Column(Integer, ForeignKey("user_service_subscriptions.id", ondelete="SET NULL"), nullable=True, index=True)
+    
     email = Column(String(255), nullable=False, index=True)
     uuid = Column(String(36), unique=True, nullable=False)
     inbound_id = Column(Integer, nullable=False)
@@ -72,7 +75,9 @@ class Client(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="clients")
-
+    
+    # === ADD THIS NEW RELATIONSHIP ===
+    subscription = relationship("UserServiceSubscription", back_populates="clients")
 
 class PaymentStatusEnum(enum.Enum):
     PENDING = "pending"
@@ -139,11 +144,14 @@ class UserServiceSubscription(Base):
     __tablename__ = "user_service_subscriptions"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    service_package_id = Column(Integer, ForeignKey("service_packages.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    service_package_id = Column(Integer, ForeignKey("service_packages.id", ondelete="RESTRICT"), nullable=False)
     status = Column(String(50), default="active", index=True)
     expiry_date = Column(DateTime, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # === ADD THIS NEW RELATIONSHIP ===
+    clients = relationship("Client", back_populates="subscription")
 
 
 class SupportTicket(Base):
