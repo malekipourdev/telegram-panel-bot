@@ -34,10 +34,6 @@ class ClientService:
         return db.query(Client).filter(Client.id == client_id).first()
     
     @staticmethod
-    def get_client_by_email(db: Session, email: str) -> Client:
-        return db.query(Client).filter(Client.email == email).first()
-    
-    @staticmethod
     def get_client_by_uuid(db: Session, uuid: str) -> Client:
         return db.query(Client).filter(Client.uuid == uuid).first()
     

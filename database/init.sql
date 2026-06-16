@@ -1,5 +1,6 @@
 USE telegram_panel;
 
+-- 1. Users Table
 CREATE TABLE users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     telegram_id BIGINT UNIQUE NOT NULL,
@@ -18,6 +19,7 @@ CREATE TABLE users (
     INDEX idx_referrer_id (referrer_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 2. Referral Links Table
 CREATE TABLE referral_links (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL UNIQUE,
@@ -31,6 +33,7 @@ CREATE TABLE referral_links (
     INDEX idx_user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 3. Referral Rewards Table
 CREATE TABLE referral_rewards (
     id INT PRIMARY KEY AUTO_INCREMENT,
     referrer_user_id INT NOT NULL,
@@ -46,24 +49,58 @@ CREATE TABLE referral_rewards (
     INDEX idx_is_claimed (is_claimed)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 4. Service Packages Table
+CREATE TABLE service_packages (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    gb_amount BIGINT NOT NULL, -- Recommended: Store as Bytes for high precision (e.g., bytes_amount)
+    price DECIMAL(10, 2) NOT NULL,
+    duration_days INT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5. User Service Subscriptions Table
+CREATE TABLE user_service_subscriptions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    service_package_id INT NOT NULL,
+    status ENUM('active', 'expired', 'cancelled') DEFAULT 'active',
+    expiry_date TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (service_package_id) REFERENCES service_packages(id) ON DELETE RESTRICT,
+    INDEX idx_user_id (user_id),
+    INDEX idx_status (status),
+    INDEX idx_expiry_date (expiry_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 6. Clients Table (Updated with subscription relation)
 CREATE TABLE clients (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
+    subscription_id INT NULL, -- Added relation link to track which purchase this config belongs to
     email VARCHAR(255) NOT NULL,
     uuid VARCHAR(36) UNIQUE NOT NULL,
     inbound_id INT NOT NULL,
     status ENUM('active', 'disabled', 'expired') DEFAULT 'active',
-    total_gb BIGINT NOT NULL,
-    used_gb BIGINT DEFAULT 0,
+    total_gb BIGINT NOT NULL, -- Recommended: Rename to total_bytes
+    used_gb BIGINT DEFAULT 0,  -- Recommended: Rename to used_bytes
     expiry_date TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (subscription_id) REFERENCES user_service_subscriptions(id) ON DELETE SET NULL,
     INDEX idx_user_id (user_id),
+    INDEX idx_subscription_id (subscription_id),
     INDEX idx_email (email),
     INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 7. Payments Table
 CREATE TABLE payments (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
@@ -88,6 +125,7 @@ CREATE TABLE payments (
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 8. Payment Methods Table
 CREATE TABLE payment_methods (
     id INT PRIMARY KEY AUTO_INCREMENT,
     admin_id INT NOT NULL,
@@ -103,33 +141,7 @@ CREATE TABLE payment_methods (
     INDEX idx_is_active (is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE service_packages (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    gb_amount BIGINT NOT NULL,
-    price DECIMAL(10, 2) NOT NULL,
-    duration_days INT,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_is_active (is_active)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE user_service_subscriptions (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    service_package_id INT NOT NULL,
-    status ENUM('active', 'expired', 'cancelled') DEFAULT 'active',
-    expiry_date TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (service_package_id) REFERENCES service_packages(id) ON DELETE RESTRICT,
-    INDEX idx_user_id (user_id),
-    INDEX idx_status (status),
-    INDEX idx_expiry_date (expiry_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
+-- 9. Support Tickets Table
 CREATE TABLE support_tickets (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
@@ -146,6 +158,7 @@ CREATE TABLE support_tickets (
     INDEX idx_assigned_admin_id (assigned_admin_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 10. Admin Logs Table
 CREATE TABLE admin_logs (
     id INT PRIMARY KEY AUTO_INCREMENT,
     admin_id INT NOT NULL,
@@ -161,5 +174,6 @@ CREATE TABLE admin_logs (
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Seed initial system admin
 INSERT INTO users (telegram_id, username, first_name, is_admin, is_active, balance)
 VALUES (0, 'system_admin', 'System', TRUE, TRUE, 10000);

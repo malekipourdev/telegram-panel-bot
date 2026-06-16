@@ -1,7 +1,6 @@
 import logging
 from telegram import Update
 from telegram.ext import ContextTypes
-import uuid
 
 from services.panel import PanelAPIClient
 from services.user import UserService
