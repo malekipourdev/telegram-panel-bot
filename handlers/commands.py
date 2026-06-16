@@ -183,6 +183,8 @@ async def handle_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             total_bytes=test_package.gb_amount,
             inbound_id=1
         )
+        # Log the panel result for debugging
+        logger.info(f"Panel API response for test client creation: {panel_result}")
         
         if panel_result.get("success"):
             # 6. Create subscription record using UserService helper
