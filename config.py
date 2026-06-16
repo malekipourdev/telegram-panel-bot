@@ -8,6 +8,7 @@ class Settings:
     PANEL_BASE_URL: str = os.getenv("SANAYI_API_BASE_URL", "https://start724.online:48127")
     PANEL_API_TOKEN: str = os.getenv("SANAYI_API_SECRET", "BcHHuqGxpAbcf6b1vBZf96px3lZ3pKBKC62bCCFq1Eij2Ivj")
     TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "test_token_12345")
+    TELEGRAM_BOT_USERNAME: str = os.getenv("TELEGRAM_BOT_USERNAME", "your_bot_username")
     PANEL_SUB_URL_BASE: str = os.getenv("PANEL_SUB_URL_BASE", "https://start724.online:2096/sub")
     
     PANEL_WEB_PATH: str = "Nao4H5JUx1fD5hQY60"

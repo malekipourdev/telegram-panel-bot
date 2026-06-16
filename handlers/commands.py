@@ -121,7 +121,7 @@ async def handle_referral(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         
         stats = UserService.get_user_referral_stats(db, db_user.id)
         
-        referral_url = f"https://t.me/your_bot_username?start={referral_link.invite_code}"
+        referral_url = f"https://t.me/{settings.TELEGRAM_BOT_USERNAME}?start={referral_link.invite_code}"
         
         await update.message.reply_text(
             f"🔗 Your Referral Link\n\n"
