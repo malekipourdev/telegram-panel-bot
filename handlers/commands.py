@@ -171,37 +171,31 @@ async def handle_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             await update.message.reply_text("❌ Test package configuration not found in database. Please contact admin.")
             return
             
-        # 4. Generate unique identifiers for the new client config
+        # 4. Generate unique identifiers safely on the bot side
         unique_suffix = uuid.uuid4().hex[:6]
         test_email = f"test_{db_user.id}_{unique_suffix}"
-        generated_uuid = str(uuid.uuid4())
-        
-        # 5. Call your Panel API Client to create the client on 3X-UI server
-        # Note: Adjust the method name 'add_new_client' to match your actual PanelAPIClient implementation if needed
+        generated_uuid = str(uuid.uuid4()) # <=== WE GENERATE IT FIRST
+
+        # 5. Call Panel API and force it to use our generated_uuid
         panel_result = await panel_client.create_client(
             email=test_email, 
             total_bytes=test_package.gb_amount,
+            client_uuid=generated_uuid, # <=== PASS IT TO THE API METHOD
             inbound_id=1
         )
-        # Log the panel result for debugging
-        logger.info(f"Panel API response for test client creation: {panel_result}")
         
         if panel_result.get("success"):
             # 6. Create subscription record using UserService helper
-            # Note: We will add 'create_subscription_record' to UserService as well
             subscription = await UserService.create_subscription_record(
-                db=db, 
-                user_id=db_user.id, 
-                package_id=test_package.id, 
-                duration_days=test_package.duration_days or 30
+                db=db, user_id=db_user.id, package_id=test_package.id, duration_days=test_package.duration_days or 30
             )
             
-            # 7. Map and save the client config into the local database
+            # 7. Map and save into local database using the SAME generated_uuid
             new_client = Client(
                 user_id=db_user.id,
                 subscription_id=subscription.id,
                 email=test_email,
-                uuid=generated_uuid,
+                uuid=generated_uuid, # <=== 100% matched with panel now
                 inbound_id=1,
                 status="active",
                 total_gb=test_package.gb_amount,
@@ -210,8 +204,8 @@ async def handle_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             db.add(new_client)
             db.commit()
             
-            # 8. Generate dynamic subscription URL and respond to the user
-            subscription_url = f"https://start724.online:48127/{generated_uuid}"
+            # 8. Dynamic subscription URL
+            subscription_url = f"{settings.PANEL_SUB_URL_BASE}/{generated_uuid}"
             await update.message.reply_text(
                 f"✅ Test configuration created successfully!\n\n"
                 f"📧 Email: `{test_email}`\n"

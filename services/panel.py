@@ -36,11 +36,16 @@ class PanelAPIClient:
             logger.error(f"Error fetching clients: {e}")
             raise
     
-    async def create_client(self, email: str, total_bytes: int, inbound_id: int = 1) -> Dict[str, Any]:
+    async def create_client(self, email: str, total_bytes: int, client_uuid: str, inbound_id: int = 1) -> Dict[str, Any]:
+        """
+        Sends an asynchronous POST request to the 3X-UI panel.
+        Passes the locally generated UUID so the panel adopts it instead of creating a new one.
+        """
         url = f"{self.base_url}/panel/api/clients/add"
         
         payload = {
             "client": {
+                "id": client_uuid,      # <=== WE PASS OUR UUID HERE AS REVEALED BY DOCS
                 "email": email,
                 "totalGB": total_bytes,
                 "expiryTime": 0,
@@ -58,7 +63,7 @@ class PanelAPIClient:
                 return response.json()
         except httpx.HTTPError as e:
             logger.error(f"HTTP error creating client: {e}")
-            raise
+            return {"success": False, "msg": f"HTTP Error: {str(e)}"}
         except Exception as e:
             logger.error(f"Error creating client: {e}")
-            raise
+            return {"success": False, "msg": f"Internal Error: {str(e)}"}
