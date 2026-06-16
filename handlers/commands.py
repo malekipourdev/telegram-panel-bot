@@ -178,7 +178,7 @@ async def handle_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         
         # 5. Call your Panel API Client to create the client on 3X-UI server
         # Note: Adjust the method name 'add_new_client' to match your actual PanelAPIClient implementation if needed
-        panel_result = await panel_client.add_new_client(
+        panel_result = await panel_client.add_client(
             email=test_email, 
             total_bytes=test_package.gb_amount,
             inbound_id=1
