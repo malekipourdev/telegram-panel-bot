@@ -34,6 +34,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "/test - Create test client (50MB)\n"
             "/balance - Check your balance\n"
             "/referral - Get your referral link"
+            "/buy - Buy new config"
         )
         logger.info(f"User {user.id} started the bot")
     except Exception as e:
