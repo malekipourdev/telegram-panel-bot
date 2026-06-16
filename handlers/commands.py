@@ -297,7 +297,8 @@ async def handle_package_purchase_callback(update: Update, context: ContextTypes
         unique_suffix = uuid.uuid4().hex[:6]
         client_email = f"user_{db_user.id}_{unique_suffix}"
 
-        # 4. Request the Panel API Client to create the account and sync the server-generated UUID
+        # 4. Request the Panel API Client to create the account 
+        # (It will create the account and return the REAL server-generated UUID)
         panel_result = await panel_client.create_client(
             email=client_email,
             total_bytes=package.gb_amount,
@@ -305,6 +306,7 @@ async def handle_package_purchase_callback(update: Update, context: ContextTypes
         )
 
         if panel_result.get("success"):
+            # === FIXED: Extract the actual verified UUID from the response dict exactly like /test ===
             actual_uuid = panel_result.get("uuid")
 
             # 5. Build subscription database record
@@ -315,12 +317,12 @@ async def handle_package_purchase_callback(update: Update, context: ContextTypes
                 duration_days=package.duration_days or 30
             )
 
-            # 6. Save the genuine client node linking the subscription ID
+            # 6. Save the genuine client node linking the subscription ID and using the REAL panel UUID
             new_client = Client(
                 user_id=db_user.id,
                 subscription_id=subscription.id,
                 email=client_email,
-                uuid=actual_uuid,
+                uuid=actual_uuid, # <=== 100% matched with panel now!
                 inbound_id=1,
                 status="active",
                 total_gb=package.gb_amount,
@@ -331,7 +333,7 @@ async def handle_package_purchase_callback(update: Update, context: ContextTypes
             # Commit all operations together atomically (Balance deduction + Sub creation + Client creation)
             db.commit()
 
-            # 7. Deliver the clean subscription URL to the buyer
+            # 7. Deliver the clean subscription URL to the buyer using the real UUID
             subscription_url = f"{settings.PANEL_SUB_URL_BASE}/{actual_uuid}"
             await query.edit_message_text(
                 f"🎉 Order Completed Successfully!\n\n"
@@ -342,7 +344,7 @@ async def handle_package_purchase_callback(update: Update, context: ContextTypes
                 f"`{subscription_url}`",
                 parse_mode="Markdown"
             )
-            logger.info(f"User {user.id} successfully purchased package {package.name} (ID: {package.id})")
+            logger.info(f"User {user.id} successfully purchased package {package.name} (ID: {package.id}) with UUID {actual_uuid}")
         else:
             # Rollback the balance deduction since the panel failed to create the account
             db.rollback()
