@@ -171,31 +171,35 @@ async def handle_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             await update.message.reply_text("❌ Test package configuration not found in database. Please contact admin.")
             return
             
-        # 4. Generate unique identifiers safely on the bot side
+        # 4. Generate unique email identifier safely on the bot side
         unique_suffix = uuid.uuid4().hex[:6]
         test_email = f"test_{db_user.id}_{unique_suffix}"
-        generated_uuid = str(uuid.uuid4()) # <=== WE GENERATE IT FIRST
 
-        # 5. Call Panel API and force it to use our generated_uuid
+        # 5. Call Panel API (It will create the account and return the REAL server-generated UUID)
         panel_result = await panel_client.create_client(
             email=test_email, 
             total_bytes=test_package.gb_amount,
-            client_uuid=generated_uuid, # <=== PASS IT TO THE API METHOD
             inbound_id=1
         )
         
         if panel_result.get("success"):
+            # Extract the actual verified UUID from the response dict
+            actual_uuid = panel_result.get("uuid")
+
             # 6. Create subscription record using UserService helper
             subscription = await UserService.create_subscription_record(
-                db=db, user_id=db_user.id, package_id=test_package.id, duration_days=test_package.duration_days or 30
+                db=db, 
+                user_id=db_user.id, 
+                package_id=test_package.id, 
+                duration_days=test_package.duration_days or 30
             )
             
-            # 7. Map and save into local database using the SAME generated_uuid
+            # 7. Save into local database using the REAL panel UUID
             new_client = Client(
                 user_id=db_user.id,
                 subscription_id=subscription.id,
                 email=test_email,
-                uuid=generated_uuid, # <=== 100% matched with panel now
+                uuid=actual_uuid,  # 100% matched with panel now
                 inbound_id=1,
                 status="active",
                 total_gb=test_package.gb_amount,
@@ -204,17 +208,19 @@ async def handle_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             db.add(new_client)
             db.commit()
             
-            # 8. Dynamic subscription URL
-            subscription_url = f"{settings.PANEL_SUB_URL_BASE}/{generated_uuid}"
+            # 8. Dynamic subscription URL using the real UUID
+            subscription_url = f"{settings.PANEL_SUB_URL_BASE}/{actual_uuid}"
+            
             await update.message.reply_text(
-                f"✅ Test configuration created successfully!\n\n"
+                f"✅ Test configuration claimed successfully!\n\n"
+                f"📋 Specifications:\n"
                 f"📧 Email: `{test_email}`\n"
                 f"📅 Validity: 30 Days\n\n"
                 f"🔗 Your Subscription Link:\n"
                 f"`{subscription_url}`",
                 parse_mode="Markdown"
             )
-            logger.info(f"Successfully generated 50MB trial for user {user.id}")
+            logger.info(f"Successfully generated 50MB trial for user {user.id} with verified UUID {actual_uuid}")
         else:
             error_msg = panel_result.get("msg", "Unknown panel error")
             await update.message.reply_text(f"❌ Failed to communicate with panel: {error_msg}")
