@@ -1,6 +1,41 @@
 version: "3.8"
 
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: panel_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password_123
+      MYSQL_DATABASE: telegram_panel
+      MYSQL_USER: panel_user
+      MYSQL_PASSWORD: panel_pass_123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - panel_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: panel_phpmyadmin
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: panel_user
+      PMA_PASSWORD: panel_pass_123
+      PMA_ROOT_PASSWORD: root_password_123
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql
+    networks:
+      - panel_network
+
   telegram-bot:
     build:
       context: .
@@ -10,23 +45,26 @@ services:
       - "8000:8000"
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - SANAYI_API_BASE_URL=${SANAYI_API_BASE_URL:-https://api.sanayi.panel}
-      - SANAYI_API_KEY=${SANAYI_API_KEY}
+      - SANAYI_API_BASE_URL=${SANAYI_API_BASE_URL:-https://start724.online:48127}
       - SANAYI_API_SECRET=${SANAYI_API_SECRET}
-      - API_HOST=0.0.0.0
-      - API_PORT=8000
+      - DATABASE_URL=mysql+pymysql://panel_user:panel_pass_123@mysql:3306/telegram_panel
     volumes:
       - ./:/app
+    depends_on:
+      mysql:
+        condition: service_healthy
     restart: unless-stopped
     networks:
-      - telegram-network
+      - panel_network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+
+volumes:
+  mysql_data:
 
 networks:
-  telegram-network:
+  panel_network:
     driver: bridge

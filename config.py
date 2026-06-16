@@ -15,6 +15,14 @@ class Settings:
     
     API_TIMEOUT: float = 12.0
     LOG_LEVEL: str = "INFO"
+    
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL",
+        "mysql+pymysql://panel_user:panel_pass_123@localhost:3306/telegram_panel"
+    )
+    
+    REFERRAL_REWARD_AMOUNT: float = 10000.0
+    REFERRAL_PERCENTAGE: float = 0.1
 
 
 settings = Settings()
